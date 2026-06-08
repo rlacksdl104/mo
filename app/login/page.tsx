@@ -160,38 +160,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">또는</span>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-12">
-                <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"
-                  />
-                </svg>
-                Google
-              </Button>
-              <Button variant="outline" className="h-12 bg-[#FEE500] text-[#191919] border-[#FEE500] hover:bg-[#FDD835] hover:border-[#FDD835]">
-                <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M12,3c5.799,0,10.5,3.664,10.5,8.185c0,4.52-4.701,8.184-10.5,8.184c-0.526,0-1.042-0.032-1.545-0.094l-4.703,3.142c-0.166,0.111-0.376,0.138-0.567,0.072c-0.19-0.065-0.336-0.22-0.392-0.416l-0.012-0.051l-0.569-3.023c-3.037-1.579-4.962-4.323-4.962-7.414C0.75,6.664,5.451,3,12,3z"
-                  />
-                </svg>
-                카카오
-              </Button>
-            </div>
-          </div>
-
           <p className="mt-8 text-center text-sm text-muted-foreground">
             아직 계정이 없으신가요?{" "}
             <Link href="/signup" className="text-primary font-medium hover:underline">
