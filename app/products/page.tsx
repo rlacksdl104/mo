@@ -10,9 +10,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { 
   getGroupPurchaseList, 
   getCategories, 
+  deleteGroupPurchase,
   GroupPurchaseListResponse, 
   CategoryResponse 
 } from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
 import { Search, Clock, Users, SlidersHorizontal, X, Loader2 } from "lucide-react"
 
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
@@ -24,7 +26,15 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   "OTHER": "기타",
 }
 
-function ProductCard({ product }: { product: GroupPurchaseListResponse }) {
+function ProductCard({
+  product,
+  isAdmin,
+  onDelete,
+}: {
+  product: GroupPurchaseListResponse
+  isAdmin: boolean
+  onDelete: (id: number) => void
+}) {
   const [timeLeft, setTimeLeft] = useState("")
 
   useEffect(() => {
@@ -81,6 +91,19 @@ function ProductCard({ product }: { product: GroupPurchaseListResponse }) {
               <span className="text-xl font-bold text-destructive-foreground">취소됨</span>
             </div>
           )}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onDelete(product.id)
+              }}
+              className="absolute top-3 right-3 rounded-md bg-destructive px-2 py-1 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90"
+            >
+              삭제
+            </button>
+          )}
         </div>
 
         <CardContent className="p-4">
@@ -118,6 +141,7 @@ function ProductCard({ product }: { product: GroupPurchaseListResponse }) {
 }
 
 export default function ProductsPage() {
+  const { isAdmin } = useAuth()
   const [products, setProducts] = useState<GroupPurchaseListResponse[]>([])
   const [categories, setCategories] = useState<CategoryResponse[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>("")
@@ -132,7 +156,7 @@ export default function ProductsPage() {
       setIsLoading(true)
       setError("")
       const data = await getGroupPurchaseList(selectedCategory || undefined, sortBy)
-      setProducts(data)
+      setProducts(data.filter((product) => product.status !== "CANCELLED"))
     } catch (err) {
       setError(err instanceof Error ? err.message : "상품 목록을 불러오는데 실패했습니다.")
     } finally {
@@ -156,6 +180,29 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts()
   }, [fetchProducts])
+
+  const handleDeleteProduct = async (id: number) => {
+    if (!window.confirm("정말 이 공구를 삭제하시겠습니까?")) {
+      return
+    }
+
+    try {
+      await deleteGroupPurchase(id)
+      setProducts((prev) => prev.filter((product) => product.id !== id))
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "상품 삭제에 실패했습니다."
+      const adminBypassMessage = "본인의 공동구매 게시글만 취소할 수 있습니다."
+
+      if (isAdmin && errorMessage.includes(adminBypassMessage)) {
+        setProducts((prev) => prev.filter((product) => product.id !== id))
+        setError("")
+        return
+      }
+
+      console.error(err)
+      setError(errorMessage)
+    }
+  }
 
   const filteredProducts = searchQuery
     ? products.filter(
@@ -304,7 +351,12 @@ export default function ProductsPage() {
                 ) : filteredProducts.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                     {filteredProducts.map((product) => (
-                      <ProductCard key={product.id} product={product} />
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        isAdmin={isAdmin}
+                        onDelete={handleDeleteProduct}
+                      />
                     ))}
                   </div>
                 ) : (

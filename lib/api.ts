@@ -308,6 +308,33 @@ export async function paymentCancel(groupPurchaseId: number): Promise<void> {
   await apiFetch<void>(`/payment/cancel/${groupPurchaseId}`, { method: "POST" })
 }
 
+export async function deleteGroupPurchase(groupPurchaseId: number): Promise<void> {
+  const normalPath = `/group-purchase/${groupPurchaseId}`
+  const adminPath = `/admin/group-purchase/${groupPurchaseId}`
+
+  try {
+    await apiFetch<void>(adminPath, { method: "DELETE" })
+    return
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    const fallbackErrors = [
+      "Not Found",
+      "404",
+      "not found",
+      "cannot find",
+      "No Content",
+      "Unauthorized",
+      "Forbidden",
+      "No static resource",
+    ]
+    if (fallbackErrors.some((token) => message.includes(token))) {
+      await apiFetch<void>(normalPath, { method: "DELETE" })
+      return
+    }
+    throw err
+  }
+}
+
 export async function createGroupPurchase(formData: FormData): Promise<GroupPurchaseDetailResponse> {
   return apiMultipartFetch<GroupPurchaseDetailResponse>(`/group-purchase`, formData)
 }
@@ -354,7 +381,7 @@ export interface OrderResponse {
 
 export async function getSellerProducts(): Promise<GroupPurchaseListResponse[]> {
   try {
-    return await apiFetch<GroupPurchaseListResponse[]>(`/admin/group-purchases`)
+    return await apiFetch<GroupPurchaseListResponse[]>(`/admin/group-purchase`)
   } catch (error) {
     // Fallback for backends that do not expose a dedicated admin list endpoint.
     return apiFetch<GroupPurchaseListResponse[]>(`/group-purchase`)
