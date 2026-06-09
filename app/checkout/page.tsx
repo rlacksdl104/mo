@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk/dist/index.esm.js"
+// Load Toss Payments SDK dynamically on the client to avoid server bundling issues
 import { 
   getGroupPurchaseDetail, 
   paymentReady, 
@@ -259,6 +259,10 @@ function CheckoutContent() {
       }
 
       const paymentAmount = readyResponse.amount
+      const sdk = await import("@tosspayments/tosspayments-sdk/dist/index.esm.js")
+      const loadTossPayments = sdk.loadTossPayments
+      const ANONYMOUS = sdk.ANONYMOUS
+
       const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY)
       const payment = tossPayments.payment({
         customerKey: ANONYMOUS,
