@@ -157,9 +157,18 @@ export interface AdminMyPageResponse {
   createdAt: string
 }
 // API base URL - set via environment variable `NEXT_PUBLIC_API_URL`.
+// If `NEXT_PUBLIC_API_URL` is provided at build time, use it.
+// Otherwise choose a sensible default:
+// - In local (http) use the direct backend IP (unchanged local dev behavior).
+// - In HTTPS browser deployments (Vercel) use the same-origin proxy `/api/proxy`
+//   so the browser won't trigger Mixed Content errors and Vercel can rewrite it.
+const DEFAULT_API = (typeof window !== "undefined" && window.location.protocol === "https:")
+  ? "/api/proxy"
+  : "http://13.208.243.83:8080"
+
 const API_BASE = (typeof process !== "undefined" && process.env && process.env.NEXT_PUBLIC_API_URL)
   ? process.env.NEXT_PUBLIC_API_URL
-  : "http://13.208.243.83:8080"
+  : DEFAULT_API
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getAccessToken()

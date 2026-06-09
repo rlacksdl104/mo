@@ -29,7 +29,7 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react"
-import { getMyOrders } from "@/lib/api"
+import { getMyOrders, cancelParticipation } from "@/lib/api"
 
 type Order = {
   id: string
@@ -43,6 +43,8 @@ type Order = {
   targetParticipants?: number
   endDate?: string
   orderedAt?: string
+  cancelledAt?: string | null
+  cancelReason?: string | null
 }
 
 function getStatusBadge(status: string) {
@@ -64,6 +66,7 @@ export default function BuyerMyPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isCancelling, setIsCancelling] = useState(false)
   const [orders, setOrders] = useState<Order[]>([])
 
   useEffect(() => {
@@ -84,7 +87,16 @@ export default function BuyerMyPage() {
     ;(async () => {
       try {
         const data = await getMyOrders()
-        const mapped: Order[] = data.map((d: any) => ({
+        // Debug: log raw orders response to help investigate unexpected cancellations
+        console.log("getMyOrders raw response:", data)
+        const mapped: Order[] = data.map((d: any) => {
+          const isCancelled = d.status === "CANCELLED"
+          const cancelledAt = d.cancelledAt ?? d.cancelled_at ?? null
+          const cancelReason = d.cancelReason ?? d.cancel_reason ?? null
+          if (isCancelled && !cancelledAt && !cancelReason) {
+            console.warn(`Order ${d.id} has status=CANCELLED but no cancelledAt/cancelReason in response`, d)
+          }
+          return {
           id: d.id,
           productName: d.productName,
           imageUrl: d.imageUrl,
@@ -96,7 +108,10 @@ export default function BuyerMyPage() {
           targetParticipants: d.targetParticipants,
           endDate: d.endDate,
           orderedAt: d.orderedAt,
-        }))
+          cancelledAt,
+          cancelReason,
+        }
+        })
         setOrders(mapped)
       } catch (err) {
         console.error("주문 로드 실패:", err)
@@ -111,9 +126,20 @@ export default function BuyerMyPage() {
     setCancelDialogOpen(true)
   }
 
-  const handleConfirmCancel = () => {
-    setCancelDialogOpen(false)
-    setSelectedOrder(null)
+  const handleConfirmCancel = async () => {
+    if (!selectedOrder) return
+    setIsCancelling(true)
+    try {
+      await cancelParticipation(selectedOrder.id)
+      setOrders((prev) => prev.map(o => o.id === selectedOrder.id ? { ...o, status: "취소됨" } : o))
+    } catch (err) {
+      console.error("참여 취소 실패:", err)
+      // Optionally show an error toast here
+    } finally {
+      setIsCancelling(false)
+      setCancelDialogOpen(false)
+      setSelectedOrder(null)
+    }
   }
 
   if (isLoading) {
@@ -392,11 +418,11 @@ export default function BuyerMyPage() {
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={isCancelling}>
               돌아가기
             </Button>
-            <Button variant="destructive" onClick={handleConfirmCancel}>
-              취소하기
+            <Button variant="destructive" onClick={handleConfirmCancel} disabled={isCancelling}>
+              {isCancelling ? "취소중..." : "취소하기"}
             </Button>
           </DialogFooter>
         </DialogContent>

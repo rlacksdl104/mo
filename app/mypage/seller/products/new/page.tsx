@@ -134,6 +134,16 @@ export default function AddProductPage() {
         }
       }
 
+      // Additional debug: print getAll results for common field names and keys
+      try {
+        console.log('FormData.getAll("image") =>', payload.getAll("image"))
+        console.log('FormData.getAll("images") =>', payload.getAll("images"))
+        console.log('FormData.getAll("images[]") =>', payload.getAll("images[]"))
+        console.log('FormData keys =>', Array.from(payload.keys()))
+      } catch (e) {
+        console.warn('FormData.getAll debug failed', e)
+      }
+
       await createGroupPurchase(payload)
       router.push("/mypage/seller")
     } catch (err: any) {

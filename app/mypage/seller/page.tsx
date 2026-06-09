@@ -33,7 +33,7 @@ import {
   Loader2,
 } from "lucide-react"
 
-import { getSellerProducts } from "@/lib/api"
+import { getSellerProducts, cancelGroupPurchase } from "@/lib/api"
 
 type SellerProduct = {
   id: string
@@ -82,6 +82,7 @@ export default function SellerMyPage() {
   const [products, setProducts] = useState<SellerProduct[]>([])
   const [cancelCount, setCancelCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [isCancelling, setIsCancelling] = useState(false)
 
   useEffect(() => {
     if (isInitializing) {
@@ -133,14 +134,21 @@ export default function SellerMyPage() {
     setCancelDialogOpen(true)
   }
 
-  const confirmCancel = () => {
-    if (productToCancel) {
-      setProducts(products.map(p => 
-        p.id === productToCancel.id 
-          ? { ...p, status: "취소됨" }
-          : p
-      ))
-      setCancelCount(prev => prev + 1)
+  const confirmCancel = async () => {
+    if (!productToCancel) return
+    setIsCancelling(true)
+    try {
+      const resp = await cancelGroupPurchase(productToCancel.id)
+      setProducts(products.map(p => p.id === productToCancel.id ? { ...p, status: "취소됨" } : p))
+      if (resp && typeof (resp as any).penaltyCount === "number") {
+        setCancelCount((resp as any).penaltyCount)
+      } else {
+        setCancelCount(prev => prev + 1)
+      }
+    } catch (err) {
+      console.error("공구 취소 실패:", err)
+    } finally {
+      setIsCancelling(false)
       setCancelDialogOpen(false)
       setProductToCancel(null)
     }
@@ -417,11 +425,11 @@ export default function SellerMyPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={isCancelling}>
               취소
             </Button>
-            <Button variant="destructive" onClick={confirmCancel}>
-              공구 취소하기
+            <Button variant="destructive" onClick={confirmCancel} disabled={isCancelling}>
+              {isCancelling ? "취소중..." : "공구 취소하기"}
             </Button>
           </DialogFooter>
         </DialogContent>
