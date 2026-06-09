@@ -10,14 +10,13 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk"
 import { 
   getGroupPurchaseDetail, 
   paymentReady, 
-  paymentVerify,
+  verifyTossPayment,
   GroupPurchaseDetailResponse 
 } from "@/lib/api"
-
-const PORTONE_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY || "channel-key-18215079-1fd1-4a4a-88c9-dd3a2a1c2222"
 import { useAuth } from "@/lib/auth-context"
 import {
   ChevronLeft,
@@ -29,44 +28,8 @@ import {
   Loader2,
 } from "lucide-react"
 
-declare global {
-  interface Window {
-    IMP?: {
-      init: (merchantId: string) => void
-      request_pay: (
-        options: {
-          pg: string
-          pay_method: string
-          merchant_uid: string
-          name: string
-          amount: number
-          buyer_email?: string
-          buyer_name?: string
-          buyer_tel?: string
-          buyer_addr?: string
-        },
-        callback: (response: {
-          success: boolean
-          imp_uid?: string
-          merchant_uid?: string
-          error_msg?: string
-        }) => void
-      ) => void
-    }
-    daum?: {
-      Postcode: new (options: {
-        oncomplete: (data: {
-          zonecode: string
-          roadAddress: string
-          jibunAddress: string
-          bname: string
-          buildingName: string
-          apartment: string
-        }) => void
-      }) => { open: () => void }
-    }
-  }
-}
+const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || ""
+const HAS_TOSS_KEY = Boolean(TOSS_CLIENT_KEY)
 
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   "FRUIT": "과일",
@@ -135,29 +98,6 @@ function CheckoutContent() {
     fetchProduct()
   }, [isInitializing, isLoggedIn, router, fetchProduct])
 
-  useEffect(() => {
-    const initializeImp = () => {
-      if (typeof window === "undefined" || !window.IMP) return
-      try {
-        window.IMP.init(PORTONE_CHANNEL_KEY)
-        console.log("PortOne initialized with channel key", PORTONE_CHANNEL_KEY)
-      } catch (error) {
-        console.warn("PortOne init failed:", error)
-      }
-    }
-
-    initializeImp()
-    const checkInterval = window.setInterval(() => {
-      if (typeof window !== "undefined" && window.IMP) {
-        initializeImp()
-        window.clearInterval(checkInterval)
-      }
-    }, 500)
-
-    return () => {
-      window.clearInterval(checkInterval)
-    }
-  }, [])
 
   if (isLoading) {
     return (
@@ -180,6 +120,28 @@ function CheckoutContent() {
             <h1 className="text-2xl font-bold text-foreground mb-4">
               {error || "상품 정보를 찾을 수 없습니다"}
             </h1>
+            <Button asChild>
+              <Link href="/products">상품 목록으로</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (product.isOwner) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground mb-4">
+              본인 공구는 참여할 수 없습니다.
+            </h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              이 상품은 현재 회원님의 공구로 등록되어 있어 참여가 불가능합니다.
+            </p>
             <Button asChild>
               <Link href="/products">상품 목록으로</Link>
             </Button>
@@ -292,43 +254,35 @@ function CheckoutContent() {
         shippingAddress: fullShippingAddress,
       })
 
-      // 2. 아임포트 결제창 호출
-      if (typeof window !== "undefined" && window.IMP) {
-        window.IMP.request_pay(
-          {
-            pg: "kakaopay",
-            pay_method: "card",
-            merchant_uid: readyResponse.merchantUid,
-            name: product.title,
-            amount: readyResponse.amount,
-            buyer_name: shippingInfo.receiverName,
-            buyer_tel: shippingInfo.receiverPhone,
-            buyer_addr: fullShippingAddress,
-          },
-          async (response) => {
-            if (response.success && response.imp_uid && response.merchant_uid) {
-              try {
-                // 3. 결제 검증 API 호출
-                await paymentVerify({
-                  impUid: response.imp_uid,
-                  merchantUid: response.merchant_uid,
-                })
-                setIsComplete(true)
-              } catch (verifyError) {
-                setError(verifyError instanceof Error ? verifyError.message : "결제 검증에 실패했습니다.")
-              }
-            } else {
-              setError(response.error_msg || "결제가 취소되었습니다.")
-            }
-            setIsProcessing(false)
-          }
-        )
-      } else {
-        // Iamport SDK 로드 실패시 - 데모용으로 바로 완료 처리
-        console.log("[v0] Iamport SDK not loaded, simulating payment success")
-        setIsComplete(true)
-        setIsProcessing(false)
+      if (!HAS_TOSS_KEY) {
+        throw new Error("토스페이먼츠 클라이언트 키가 설정되지 않았습니다.")
       }
+
+      const paymentAmount = readyResponse.amount
+      const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY)
+      const payment = tossPayments.payment({
+        customerKey: ANONYMOUS,
+      })
+
+      const successUrl = `${window.location.origin}/checkout/result`
+      const failUrl = `${window.location.origin}/checkout/result`
+
+      await payment.requestPayment({
+        method: "CARD",
+        amount: {
+          currency: "KRW",
+          value: paymentAmount,
+        },
+        orderId: readyResponse.merchantUid,
+        orderName: product.title,
+        customerName: shippingInfo.receiverName || user?.name || "",
+        successUrl,
+        failUrl,
+        windowTarget: "self",
+      })
+
+      // Redirect to Toss 결제 페이지가 발생하므로 이 라인 이후는 보통 실행되지 않습니다.
+      setIsProcessing(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : "결제 처리 중 오류가 발생했습니다.")
       setIsProcessing(false)
@@ -399,6 +353,13 @@ function CheckoutContent() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
+      {!HAS_TOSS_KEY && (
+        <div className="bg-amber-50 border-l-4 border-amber-400 text-amber-800 p-4 text-sm">
+          토스페이먼츠 클라이언트 키가 설정되어 있지 않습니다. `.env.local`에
+          <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">NEXT_PUBLIC_TOSS_CLIENT_KEY</code>
+          를 추가하고 개발 서버를 다시 시작해주세요.
+        </div>
+      )}
 
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4 max-w-3xl">

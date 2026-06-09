@@ -348,14 +348,16 @@ export default function ProductDetailPage({
                   <Button
                     size="lg"
                     className="flex-1"
-                    disabled={product.status !== "RECRUITING" || product.isJoined}
+                    disabled={product.status !== "RECRUITING" || product.isJoined || product.isOwner}
                     onClick={handlePurchase}
                   >
-                    {product.isJoined 
-                      ? "이미 참여중" 
-                      : product.status !== "RECRUITING" 
-                        ? "마감됨" 
-                        : "참여하기"}
+                    {product.isOwner
+                      ? "내 공구"
+                      : product.isJoined 
+                        ? "이미 참여중" 
+                        : product.status !== "RECRUITING" 
+                          ? "마감됨" 
+                          : "참여하기"}
                   </Button>
                 </div>
               </div>

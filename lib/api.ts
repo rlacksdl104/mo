@@ -137,6 +137,19 @@ export interface PaymentVerifyRequest {
   merchantUid: string
 }
 
+export interface TossPaymentVerifyRequest {
+  paymentKey: string
+  orderId: string
+  amount: number
+}
+
+export interface TossPaymentVerifyResponse {
+  paymentKey: string
+  orderId: string
+  amount: number
+  status: string
+}
+
 export interface AdminMyPageResponse {
   name: string
   farmName?: string
@@ -265,6 +278,27 @@ export async function paymentVerify(data: PaymentVerifyRequest): Promise<void> {
   await apiFetch<void>(`/payment/verify`, { method: "POST", body: JSON.stringify(data) })
 }
 
+export async function verifyTossPayment(data: TossPaymentVerifyRequest): Promise<TossPaymentVerifyResponse> {
+  const response = await fetch(`/api/toss/verify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  })
+
+  if (!response.ok) {
+    const bodyText = await response.text()
+    throw new Error(bodyText || response.statusText)
+  }
+
+  return response.json()
+}
+
+export async function paymentCancel(groupPurchaseId: number): Promise<void> {
+  await apiFetch<void>(`/payment/cancel/${groupPurchaseId}`, { method: "POST" })
+}
+
 export async function createGroupPurchase(formData: FormData): Promise<GroupPurchaseDetailResponse> {
   return apiMultipartFetch<GroupPurchaseDetailResponse>(`/group-purchase`, formData)
 }
@@ -324,4 +358,16 @@ export async function getProductParticipants(id: string): Promise<ParticipantRes
 
 export async function getMyOrders(): Promise<OrderResponse[]> {
   return apiFetch<OrderResponse[]>(`/orders`)
+}
+
+// Cancellation APIs
+// Buyer: cancel a participation/order
+export async function cancelParticipation(orderId: string): Promise<void> {
+  await apiFetch<void>(`/orders/${orderId}/cancel`, { method: "POST" })
+}
+
+// Seller: cancel a group purchase (owner cancels the entire group purchase)
+// Returns optional penalty info (backend may return penalty count or metadata)
+export async function cancelGroupPurchase(groupPurchaseId: string): Promise<{ penaltyCount?: number } | void> {
+  return apiFetch<{ penaltyCount?: number }>(`/group-purchase/${groupPurchaseId}/cancel`, { method: "POST" })
 }
