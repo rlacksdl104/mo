@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk"
+import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk/dist/index.esm.js"
 import { 
   getGroupPurchaseDetail, 
   paymentReady, 
